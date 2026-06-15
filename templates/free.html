@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自由探索 - 山城故事集</title>
+    <style>
+        :root {
+            --paper: #F0E8D8;
+            --paper-light: #F5EDE0;
+            --paper-dark: #E0D4C0;
+            --ink: #4A1010;
+            --ink-light: #6B3020;
+            --gold: #B87030;
+            --gold-light: #D4A070;
+            --wood: #C0B098;
+            --wood-dark: #A89880;
+            --seal-red: #8B3A3A;
+            --seal-red-deep: #6B2020;
+            --card-bg: #F5EDE0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+         body {
+            overflow: hidden; height: 100vh;
+            font-family: 'Noto Serif SC', 'STSong', 'Songti SC', serif;
+            background-image: url('/static/images/背景图2.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            width: 100vw;
+            user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+
+        #paper-texture {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+            pointer-events: none; mix-blend-mode: multiply; opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+        }
+
+               #main-content {
+            position: relative; z-index: 2; max-width: 1200px; margin: 0 auto;
+            padding: 3vh 40px 3vh; height: 100vh; overflow-y: auto;
+            display: flex; flex-direction: column;
+        }
+
+        #station-board {
+            width: 60vw; max-width: 500px; margin: 0 auto 2vh; flex-shrink: 0;
+            background: #E8DDD0; border: 3px solid var(--wood-dark);
+            border-radius: 8px; padding: 8px 0; text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12), inset 0 0 20px rgba(0,0,0,0.05);
+        }
+        #station-board .signal-light {
+            display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+            background: #D84030; margin: 0 8px; vertical-align: middle;
+            box-shadow: 0 0 8px #D84030;
+            animation: signalBlink 0.8s ease-in-out infinite;
+        }
+        .signal-light:nth-child(1) { animation-delay: 0s; }
+        .signal-light:nth-child(2) { animation-delay: 0.4s; }
+        @keyframes signalBlink { 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+        #station-text {
+            font-family: 'Noto Serif SC', 'STSong', serif;
+            font-size: clamp(16px, 2.2vw, 24px); font-weight: 700;
+            color: var(--ink); letter-spacing: 0.2em;
+        }
+
+        #filter-bar {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 2vh; flex-shrink: 0;
+        }
+        .filter-tag {
+            padding: 5px 14px; border-radius: 14px;
+            font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; font-size: 12px;
+            cursor: pointer; border: 1px solid rgba(160,132,92,0.4);
+            background: rgba(245,237,224,0.5); color: #6B5040; transition: all 0.3s ease;
+        }
+        .filter-tag:hover { border-color: var(--gold); background: rgba(200,169,110,0.15); }
+        .filter-tag.active { background: var(--gold); color: #FFF; border-color: var(--gold); font-weight: 500; }
+
+        #selection-bar {
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+            gap: 10px; margin-bottom: 2vh; padding: 10px 16px; flex-shrink: 0;
+            background: rgba(245,237,224,0.5); border-radius: 8px;
+            border: 1px dashed rgba(160,132,92,0.3);
+        }
+        #selection-count {
+            font-family: 'LiSu', '隶书', 'STLiti', 'KaiTi', serif;
+            font-size: 14px; color: #6B5040;
+        }
+        #selection-count span { font-weight: 700; color: #8B3A3A; }
+        #start-navigate-btn {
+            padding: 6px 20px; border-radius: 16px; background: #8B3A3A;
+            color: #F5EDE0; border: none; cursor: pointer;
+            font-family: 'LiSu', '隶书', 'STLiti', 'KaiTi', serif;
+            font-size: 13px; letter-spacing: 0.04em; transition: all 0.3s ease;
+            opacity: 0.5; pointer-events: none;
+        }
+        #start-navigate-btn.ready { opacity: 1; pointer-events: auto; }
+        #start-navigate-btn.ready:hover { background: #6B2020; box-shadow: 0 4px 12px rgba(139,58,58,0.3); }
+
+        #poi-scroll {
+            flex: 1; overflow: visible; padding: 0 4px;
+        }
+
+        #poi-grid {
+            display: grid; gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        }
+        @media (max-width: 768px) { #poi-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; } }
+
+        .poi-card {
+            background: rgba(245,237,224,0.75); border-radius: 6px; padding: 12px 14px;
+            cursor: pointer; transition: all 0.3s ease;
+            position: relative; overflow: visible; display: flex; align-items: center; gap: 10px;
+            border: none;
+            box-shadow: 0 2px 6px rgba(80,50,30,0.1);
+        }
+        .poi-card::before {
+            content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%);
+            width: 16px; height: 16px; background: #C4B098; border-radius: 50%;
+            box-shadow: inset 0 0 0 2px rgba(180,150,120,0.5);
+        }
+        .poi-card::after {
+            content: ''; position: absolute; right: -1px; top: 0; width: 6px; height: 100%;
+            background: rgba(245,237,224,0.75); border-radius: 0 3px 3px 0;
+            mask-image: repeating-linear-gradient(0deg, transparent 0px, transparent 5px, black 5px, black 7px);
+            -webkit-mask-image: repeating-linear-gradient(0deg, transparent 0px, transparent 5px, black 5px, black 7px);
+        }
+        .poi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(80,50,30,0.2);
+            background: rgba(250,245,235,0.85);
+            z-index: 100;
+        }
+        .poi-card.selected {
+            background: rgba(139,58,58,0.06);
+            box-shadow: 0 0 0 2px rgba(139,58,58,0.3);
+        }
+        .poi-card.selected::before {
+            background: #8B3A3A;
+            box-shadow: inset 0 0 0 2px rgba(139,58,58,0.5), 0 0 6px rgba(216,64,48,0.4);
+        }
+        .poi-card.selected .poi-check {
+            background: #8B3A3A; color: #F5EDE0; border-color: #8B3A3A; font-weight: 700;
+        }
+        .poi-check {
+            flex-shrink: 0; width: 24px; height: 24px; text-align: center; line-height: 24px;
+            font-size: 14px; color: #A09080; font-weight: 400;
+            position: relative; z-index: 1;
+            border-radius: 50%; background: rgba(180,150,120,0.2);
+            border: 2px solid #B8A080; cursor: pointer;
+        }
+        .poi-info { flex: 1; min-width: 0; position: relative; z-index: 1; }
+        .poi-name {
+            font-family: 'Noto Serif SC', 'STSong', serif; font-weight: 600;
+            font-size: 13px; color: var(--ink); margin-bottom: 2px;
+        }
+        .poi-district {
+            font-family: 'Noto Sans SC', 'PingFang SC', sans-serif;
+            font-size: 10px; color: #A09080; font-weight: 300;
+        }
+
+        .poi-card .poi-tooltip {
+            display: none; position: absolute; left: calc(100% + 12px); top: 0;
+            width: 200px; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.3); z-index: 200;
+            background: #F5EDE0;
+        }
+        .poi-card:nth-child(even) .poi-tooltip {
+            left: auto; right: calc(100% + 12px);
+        }
+        .poi-card.bottom-row .poi-tooltip {
+            top: auto; bottom: 0;
+        }
+        .poi-card .poi-tooltip img {
+            width: 100%; height: 267px; object-fit: cover; display: block;
+        }
+        .poi-card .poi-tooltip .tooltip-info {
+            padding: 10px 14px;
+        }
+        .poi-card .poi-tooltip .tooltip-name {
+            font-family: 'Noto Serif SC', 'STSong', serif;
+            font-weight: 700; font-size: 14px; color: #3D1810; margin-bottom: 2px;
+        }
+        .poi-card .poi-tooltip .tooltip-district {
+            font-family: 'Noto Sans SC', 'PingFang SC', sans-serif;
+            font-size: 10px; color: #A09080; margin-bottom: 6px;
+        }
+        .poi-card .poi-tooltip .tooltip-desc {
+            font-family: 'Noto Sans SC', 'PingFang SC', sans-serif;
+            font-size: 11px; color: #5C3A28; line-height: 1.5;
+        }
+
+        #back-section { text-align: center; padding: 2vh 0 0; flex-shrink: 0; }
+        #back-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+            font-family: 'LiSu', '隶书', 'STLiti', 'KaiTi', serif;
+            font-size: 14px; color: #5C3A28; text-decoration: none; transition: all 0.3s;
+            background: #F5EDE0; padding: 10px 28px; position: relative;
+            border-radius: 4px; box-shadow: 0 2px 6px rgba(80,50,30,0.15);
+            border-bottom: 2px dashed #B8A080;
+        }
+        #back-btn:hover { color: #3D1810; background: #FBF5EE; box-shadow: 0 4px 12px rgba(80,50,30,0.25); }
+
+        #toast {
+            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+            background: #3D1810; color: #F5EDE0; padding: 8px 20px;
+            border-radius: 16px; font-family: 'LiSu', '隶书', 'KaiTi', serif;
+            font-size: 13px; z-index: 1000; opacity: 0;
+            transition: all 0.3s ease; pointer-events: none;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+
+        @media (max-width: 768px) {
+            #main-content { padding: 2vh 16px 2vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <div style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;
+                background:rgba(196,176,152,0.45);"></div>
+    <div id="paper-texture"></div>
+
+    <div id="main-content">
+        <div id="station-board">
+            <span class="signal-light"></span>
+            <span class="signal-light"></span>
+            <span id="station-text">勾选你的山城目的地</span>
+            <span class="signal-light"></span>
+            <span class="signal-light"></span>
+        </div>
+
+        <div id="filter-bar">
+            <div class="filter-tag active" data-filter="all">全部</div>
+            <div class="filter-tag" data-filter="渝中区">渝中区</div>
+            <div class="filter-tag" data-filter="南岸区">南岸区</div>
+            <div class="filter-tag" data-filter="江北区">江北区</div>
+            <div class="filter-tag" data-filter="沙坪坝区">沙坪坝区</div>
+            <div class="filter-tag" data-filter="其他区">其他区</div>
+            <div style="width:100%;height:0;"></div>
+            <div class="filter-tag tag-filter" data-tag="历史">🏛 历史</div>
+            <div class="filter-tag tag-filter" data-tag="美食">🍜 美食</div>
+            <div class="filter-tag tag-filter" data-tag="观景">🌄 观景</div>
+            <div class="filter-tag tag-filter" data-tag="文创">🎨 文创</div>
+            <div class="filter-tag tag-filter" data-tag="自然">🌿 自然</div>
+        </div>
+
+        <div id="selection-bar">
+            <div id="selection-count">已选择 <span>0</span> / 100 个景点</div>
+            <button id="start-navigate-btn" onclick="startNavigate()">请至少选择2个景点</button>
+        </div>
+
+        <div id="poi-scroll">
+            <div id="poi-grid"></div>
+        </div>
+
+        <div id="back-section">
+            <a id="back-btn" href="/">← 返回首页</a>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        const allPOIs = [
+            { id: 1, name: '洪崖洞民俗风貌区', district: '渝中区', tags: ['观景','历史'], desc: '国家4A级景区，嘉陵江畔依山而建的11层巴渝吊脚楼集群，高低层均连通马路，夜间灯火极具梦幻感，是重庆标志性夜景文旅地标。' },
+            { id: 2, name: '解放碑步行街', district: '渝中区', tags: ['美食','历史'], desc: '重庆城市核心商圈，中心矗立中国唯一抗战胜利纪功碑，周边汇聚高端商场、老字号小吃，八一路好吃街集中山城本土小吃。' },
+            { id: 3, name: '长江索道景区', district: '渝中区', tags: ['观景'], desc: '国内首条跨长江客运索道，全长1166米，被誉为"空中公交"，轿厢内可俯瞰两江四岸立体城市全景，多部影视剧取景地。' },
+            { id: 4, name: '来福士水晶连廊', district: '渝中区', tags: ['观景','文创'], desc: '朝天门"朝天扬帆"地标高空观景设施，坐落塔楼52层，300米悬空玻璃廊道直面长江、嘉陵江交汇水域。' },
+            { id: 5, name: '李子坝轻轨观景台', district: '渝中区', tags: ['观景'], desc: '轨道交通2号线专属观景区，轻轨横穿居民楼，全国独有的立体交通奇观，分上下两层观景平台。' },
+            { id: 6, name: '千厮门嘉陵江大桥', district: '渝中区', tags: ['观景'], desc: '跨江公路轨道两用桥梁，人行道为拍摄洪崖洞全景最佳机位，傍晚灯光亮起后桥体、江水、吊脚楼同框。' },
+            { id: 7, name: '魁星楼悬空天桥', district: '渝中区', tags: ['观景'], desc: '临江门山地仿古楼阁配套高空连廊，垂直高差65米，新旧建筑高低错落形成强烈8D山城视觉反差，影视热门取景地。' },
+            { id: 8, name: '白象居', district: '渝中区', tags: ['历史','观景'], desc: '24层无电梯老式居民建筑群，空中连廊串联多栋单元楼，完整保留原生老重庆市井生活场景，《少年的你》取景地。' },
+            { id: 9, name: '十八梯传统风貌区', district: '渝中区', tags: ['历史','美食'], desc: '连接上半城、下半城的千年石梯街区，复原老重庆阶梯街巷肌理，旧时山城棒棒主要通行道路。' },
+            { id: 10, name: '山城巷历史文化步道', district: '渝中区', tags: ['历史','自然'], desc: '沿山脊延伸的原生梯坎步道，千级青石板阶梯串联民国民居、老茶馆、文创小店，完整留存依山而建的老城街巷风貌。' },
+            { id: 11, name: '戴家巷悬崖步道', district: '渝中区', tags: ['自然','观景'], desc: '嘉陵江崖壁慢行步道，直面洪崖洞侧景，避开主景区人流，崖边设置多处观景平台，兼具小众打卡与江景休闲功能。' },
+            { id: 12, name: '重庆中国三峡博物馆', district: '渝中区', tags: ['历史','文创'], desc: '国家级综合性博物馆，毗邻人民大礼堂，馆藏大量三峡文物、巴蜀青铜器、抗战史料，系统展示巴渝千年历史文明。' },
+            { id: 13, name: '重庆人民大礼堂', district: '渝中区', tags: ['历史'], desc: '重庆城市经典地标，仿天坛中式古典建筑形制，琉璃屋顶恢弘大气，前侧广场开阔，是城市文化活动与打卡取景核心区域。' },
+            { id: 14, name: '湖广会馆', district: '渝中区', tags: ['历史'], desc: '清代移民古建筑群，核心禹王宫供奉大禹治水塑像，融合湖广、江南民居雕刻工艺，配套古戏台，市级重点文保单位。' },
+            { id: 15, name: '曾家岩50号周公馆', district: '渝中区', tags: ['历史'], desc: '抗战时期中共中央南方局城内办公驻地，周恩来、邓颖超长期在此工作生活，全国重点文保单位，记录陪都地下统战历史。' },
+            { id: 16, name: '大轰炸六五隧道遗址', district: '渝中区', tags: ['历史'], desc: '1941年日军轰炸遇难事件原址防空隧道，留存原始掩体结构，陈列遇难史料、文物，是日军无差别轰炸山城的实物见证。' },
+            { id: 17, name: '通远门城墙遗址公园', district: '渝中区', tags: ['历史'], desc: '重庆现存最完整明代古城门，古时城西陆路通关门户，保留瓮城、古城墙本体，配套图文展馆解读老城"九开十三门"建制。' },
+            { id: 18, name: '东水门古城门遗址', district: '渝中区', tags: ['历史'], desc: '明代临江老城门遗存，旧时长江水运通关要道，残存石砌城门基座与古城墙，依托滨江步道打造老城历史展示节点。' },
+            { id: 19, name: '白象街人和门遗址', district: '渝中区', tags: ['历史'], desc: '明代小型闭门残段，隐匿于白象街民居之间，留存原生石砌城墙，结合复古老街打造明清码头城门文化打卡点。' },
+            { id: 20, name: '太平门瓮城遗址', district: '渝中区', tags: ['历史'], desc: '长江沿岸明代瓮城基址，古时商贸水运枢纽，考古保留完整墙体遗迹，配套历史解说牌还原当年码头市井风貌。' },
+            { id: 21, name: '鹅岭二厂文创公园', district: '渝中区', tags: ['文创'], desc: '前身民国中央银行印钞厂，地处渝中半岛制高点，旧厂房改造文艺园区，天台可俯瞰两江交汇，《从你的全世界路过》取景地。' },
+            { id: 22, name: '鹅岭公园（瞰胜楼）', district: '渝中区', tags: ['观景','自然'], desc: '渝中区老牌城市山林公园，山顶瞰胜楼360°俯瞰全城，植被茂密清幽，民国时期私家园林改造而成，免费城市观景绿地。' },
+            { id: 23, name: '国泰艺术中心', district: '渝中区', tags: ['文创'], desc: '现代地标文艺场馆，红黑交织几何建筑极具辨识度，配套美术馆、剧场，常年举办美术展览、话剧演出，解放碑文艺打卡地。' },
+            { id: 24, name: '较场口夜市', district: '渝中区', tags: ['美食'], desc: '渝中区老牌夜间市集，依托老城区街巷分布火锅、烧烤、特色小吃，夜间烟火氛围浓厚，本地人与游客高频觅食街区。' },
+            { id: 25, name: '抗建堂', district: '渝中区', tags: ['历史'], desc: '1941年落成民国专业剧场，抗战时期全国话剧核心阵地，郭沫若、曹禺等名家在此排演救国剧目，兼具剧场与戏剧史料展馆功能。' },
+            { id: 26, name: '新华日报旧址', district: '渝中区', tags: ['历史'], desc: '抗战时期中共机关报办公旧址，完整复原编辑部、印刷间，陈列报刊原稿、历史照片，记录战时红色新闻宣传历程。' },
+            { id: 27, name: '罗汉寺', district: '渝中区', tags: ['历史'], desc: '千年禅宗古刹，闹市中心清净寺院，拥有宋代摩崖石刻罗汉造像，《疯狂的石头》取景地，香火旺盛兼具人文与影视打卡属性。' },
+            { id: 28, name: '黄花园滨江步道', district: '渝中区', tags: ['自然','观景'], desc: '嘉陵江南岸慢行江岸绿地，紧邻黄花园大桥与轨道交通线路，近距离观赏轻轨跨江场景，静谧小众轨道风光步道。' },
+            { id: 29, name: '新都巷揽胜亭', district: '渝中区', tags: ['观景'], desc: '半山小众观景平台，无遮挡平视嘉陵江、跨江大桥与轨道列车，人少视野开阔，拍摄立体山城长焦机位。' },
+            { id: 30, name: '小什字观景平台', district: '渝中区', tags: ['观景'], desc: '长江索道楼下城市观景台，同步拍摄索道轿厢、白象居建筑群、两江高楼，地处交通枢纽出行便捷。' },
+            { id: 31, name: '打枪坝水厂旧址', district: '渝中区', tags: ['历史'], desc: '百年城市供水工业遗存，民国时期主城核心水厂，石砌水池、老厂房保留完整，小众工业历史打卡点位。' },
+            { id: 32, name: '沈钧儒旧居', district: '渝中区', tags: ['历史'], desc: '抗战时期爱国民主人士居住旧址，老式砖木民居，陈列生平史料，记录陪都时期爱国民主运动历史。' },
+            { id: 33, name: '中法学校旧址', district: '渝中区', tags: ['历史'], desc: '早期革命办学遗址，近代西式小楼建筑，复原课堂陈设，展示重庆早期红色教育发展历程。' },
+            { id: 34, name: '山城巷防空洞', district: '渝中区', tags: ['历史','美食'], desc: '改造活化民国防空洞，融合文创、茶饮、民俗展示，依托山城步道打造防空文化沉浸式打卡空间。' },
+            { id: 35, name: '洞亭火锅防空洞店', district: '渝中区', tags: ['美食'], desc: '原生防空洞改造特色火锅店，利用战时地下掩体打造就餐空间，兼具防空洞历史体验与重庆火锅美食属性。' },
+            { id: 36, name: '南山一棵树观景台', district: '南岸区', tags: ['观景','自然'], desc: '公认重庆夜景核心观景点，南山半山腰平台，无遮挡俯瞰完整渝中半岛两江灯火，雨雾天气契合"巴山夜雨"诗意氛围。' },
+            { id: 37, name: '龙门浩老街', district: '南岸区', tags: ['历史','美食'], desc: '南滨路复古老街，开埠时期洋行、领事馆遗存建筑集群，直面渝中夜景，兼具江景、民国建筑、特色餐饮多重体验。' },
+            { id: 38, name: '下浩里老街', district: '南岸区', tags: ['历史','文创'], desc: '原生市井老街，保留未过度商业化老式民居、石阶、古树，文创小店与老茶馆相融，充满原生老城烟火氛围感。' },
+            { id: 39, name: '弹子石老街', district: '南岸区', tags: ['历史','美食','观景'], desc: '滨江仿古文旅街区，融合民国建筑、巴渝吊脚楼，临江露台对望渝中半岛，火锅、江湖菜、本土小吃集中分布。' },
+            { id: 40, name: '长嘉汇购物公园', district: '南岸区', tags: ['文创','观景'], desc: '弹子石滨江潮流商圈，开阔临江观景平台，常态化举办动漫展、同人市集，是主城核心二次元线下聚集地。' },
+            { id: 41, name: '海棠溪轻轨站', district: '南岸区', tags: ['观景'], desc: '环线网红车站，弧形复古廊桥临江修建，列车、江水、桥梁同框画面充满动漫质感，摄影、二次元爱好者热门取景地。' },
+            { id: 42, name: '老君洞道观', district: '南岸区', tags: ['历史','自然'], desc: '南山千年道教建筑群，依山分层修建，登顶可俯瞰长江与主城，古木清幽，留存大量石刻碑记，兼具登山与人文观赏价值。' },
+            { id: 43, name: '南山植物园', district: '南岸区', tags: ['自然'], desc: '南山大型城市植物园，分区培育各类珍稀绿植，盆景园区静水池塘氛围感浓厚，雨雾天完美诠释巴山夜雨山林意境。' },
+            { id: 44, name: '南山文峰塔', district: '南岸区', tags: ['历史','观景'], desc: '南山山顶清代七层石塔，区域登高制高点，远眺长江与渝中全城，雾天塔身隐于山间云雾，古风诗意浓厚。' },
+            { id: 45, name: '涂山寺', district: '南岸区', tags: ['历史','自然'], desc: '重庆现存最早千年古刹，始建禹王祠纪念大禹治水，留存治水摩崖石刻，承载大禹娶涂山氏上古本土传说。' },
+            { id: 46, name: '黄葛古道', district: '南岸区', tags: ['自然','历史'], desc: '八百年青石板登山梯道，古时川黔商贸要道，数千级石阶串联涂山寺、老君洞，旧时棒棒挑夫往返南山必经之路。' },
+            { id: 47, name: '呼归石观景处', district: '南岸区', tags: ['观景','历史'], desc: '南滨路人文景观节点，对应涂山氏望夫化石传说，原址巨石搬迁后设纪念观景平台，直面两江交汇水域。' },
+            { id: 48, name: '南滨路滨江步道', district: '南岸区', tags: ['自然','观景'], desc: '南岸沿江超长慢行绿道，全程可观渝中天际线，串联龙门浩、弹子石多处老街，夜游江景首选步道。' },
+            { id: 49, name: '壹华里夜景公园', district: '南岸区', tags: ['观景','自然'], desc: '南山平价夜景公园，多层阶梯观景台，视野开阔，人流量少于一棵树，配套夜市小吃，平价观夜点位。' },
+            { id: 50, name: '壹华里市集', district: '南岸区', tags: ['美食','文创'], desc: '仿古民俗市集，依托夜景公园打造，非遗手作、特色小吃集中，傍晚可同步游览市集与山顶城市灯火。' },
+            { id: 51, name: '江南体育中心观景台', district: '南岸区', tags: ['观景'], desc: '南岸滨江休闲观景平台，视野平缓开阔，可拍摄跨江大桥与轨道列车，人少静谧适合休闲散步。' },
+            { id: 52, name: '弹子石广场', district: '南岸区', tags: ['观景'], desc: '滨江城市休闲广场，直面朝天门两江汇流，开阔绿地适合露营、休闲打卡，配套商业餐饮。' },
+            { id: 53, name: '法国水师兵营旧址', district: '南岸区', tags: ['历史'], desc: '清末开埠西洋建筑，法式城堡风格，改造为展馆、咖啡馆，留存百年开埠外交历史遗迹。' },
+            { id: 54, name: '黄桷渡步道', district: '南岸区', tags: ['自然'], desc: '上新街临江小众梯坎步道，连通索道南站与南滨路，石阶临江，近距离观赏长江江景与往来游船。' },
+            { id: 55, name: '南山涂山雕塑公园', district: '南岸区', tags: ['文创','自然'], desc: '涂山人文主题公园，大禹治水系列雕塑遍布园区，山林步道串联石刻、观景平台，上古治水文化主题园区。' },
+            { id: 56, name: '放牛坪步道', district: '南岸区', tags: ['自然'], desc: '南山原生态登山步道，植被茂密人迹稀少，徒步登顶可俯瞰长江，小众自然休闲登山线路。' },
+            { id: 57, name: '上新街索道南站', district: '南岸区', tags: ['观景'], desc: '长江索道南岸始发站，复古站楼建筑，周边配套龙门浩老街，反向乘坐索道可大幅减少排队时长。' },
+            { id: 58, name: '崇文湖公园', district: '南岸区', tags: ['自然'], desc: '南山配套城市湖泊公园，湖水静谧，绿植环绕，临近一棵树观景台，上山途中休闲休憩点位。' },
+            { id: 59, name: '呼归石花阶公园', district: '南岸区', tags: ['自然','观景'], desc: '滨江阶梯式花卉景观公园，多层花海平台直面两江交汇，四季绿植鲜花，小众江景拍照打卡地。' },
+            { id: 60, name: 'S95超次元中心', district: '南岸区', tags: ['文创'], desc: '南岸大型综合ACGN场馆，整合手办潮玩、动漫展览、cosplay场地、剧本杀，主城规模领先二次元综合空间。' },
+            { id: 61, name: '观音桥步行街', district: '江北区', tags: ['美食','文创'], desc: '江北核心潮流商圈，本地人首选休闲街区，巨型城市打卡标语墙，商场、小吃街、潮店密集，夜间人气旺盛。' },
+            { id: 62, name: '观音桥好吃街', district: '江北区', tags: ['美食'], desc: '地下多层美食市集，汇聚川渝各地平价小吃、江湖烧烤，消费亲民，是主城规模最大室内美食街区之一。' },
+            { id: 63, name: '北仓文创园', district: '江北区', tags: ['文创'], desc: '旧纺织厂改造文艺园区，红砖工业厂房搭配网红花店、咖啡馆，复古工业风拍照出片，紧邻观音桥商圈。' },
+            { id: 64, name: '鸿恩寺森林公园', district: '江北区', tags: ['自然','观景'], desc: '主城大型城市山林公园，山顶鸿恩阁多层仿古阁楼，夜间灯光华美，可360°俯瞰主城全景。' },
+            { id: 65, name: '江北嘴中央公园', district: '江北区', tags: ['自然','观景'], desc: '江北嘴城市中央绿地，草坪开阔，直面渝中半岛，近距离观赏千厮门大桥夜景，休闲露营热门绿地。' },
+            { id: 66, name: '重庆大剧院', district: '江北区', tags: ['文创'], desc: '江北嘴现代地标场馆，流线型玻璃建筑，临江而立，傍晚拍摄建筑与江景、大桥同框，文艺夜景打卡点。' },
+            { id: 67, name: '江北嘴江滩公园', district: '江北区', tags: ['自然','观景'], desc: '嘉陵江北岸滨江滩涂公园，亲水步道直达江边，拍摄洪崖洞、千厮门大桥全景最佳低位机位。' },
+            { id: 68, name: '北滨路A台观景步道', district: '江北区', tags: ['观景','自然'], desc: '江北滨江高空观景平台，完整收纳渝中建筑群、跨江轨道、嘉陵江江面，全景拍摄立体山城绝佳点位。' },
+            { id: 69, name: '九街高屋', district: '江北区', tags: ['美食','文创'], desc: '江北潮流夜生活街区，潮牌店铺、清吧、网红餐饮集中，年轻群体聚集，夜间潮流氛围感突出。' },
+            { id: 70, name: '方圆LIVE次元街区', district: '江北区', tags: ['文创'], desc: '观音桥地下二次元集中街区，手办、动漫周边、小众潮店全覆盖，定期举办漫展、同人市集，江北年轻次元聚集地。' },
+            { id: 71, name: '鎏嘉码头', district: '江北区', tags: ['美食','观景'], desc: '北滨路滨江复古文旅街区，仿民国码头建筑，临江餐饮、清吧密集，夜游江景休闲消费街区。' },
+            { id: 72, name: '三洞桥民俗风情街', district: '江北区', tags: ['历史','美食'], desc: '江北老式民俗街巷，巴渝民居风格建筑，特色江湖菜、老字号小店聚集，小众市井打卡街区。' },
+            { id: 73, name: '塔坪社区网红小巷', district: '江北区', tags: ['文创'], desc: '江北老式居民社区改造文艺小巷，彩绘墙面、小众咖啡馆密布，生活化文艺拍照小众点位。' },
+            { id: 74, name: '猫儿石文创园', district: '江北区', tags: ['文创'], desc: '旧造纸厂改造文创园区，工业遗存与艺术展厅结合，人少清静，适合拍摄复古工业风照片。' },
+            { id: 75, name: '石子山体育公园', district: '江北区', tags: ['自然'], desc: '大型城市综合体育公园，配套草坪、观景平台，远眺主城山体，市民日常休闲健身绿地。' },
+            { id: 76, name: '江北嘴福音堂', district: '江北区', tags: ['历史'], desc: '西式百年基督教堂，临江矗立，复古哥特式建筑，搭配江景氛围感强，婚纱、文艺摄影热门取景地。' },
+            { id: 77, name: '聚贤岩广场', district: '江北区', tags: ['观景'], desc: '江北嘴滨江休闲广场，紧邻大剧院，平缓绿地可观赏跨江桥梁与渝中夜景，短途散步休闲点位。' },
+            { id: 78, name: '溉澜溪滨江公园', district: '江北区', tags: ['自然','观景'], desc: '江北东段滨江绿地，人流稀少，视野开阔，远眺长江与南山，静谧小众沿江步道。' },
+            { id: 79, name: '磁器口古镇', district: '沙坪坝区', tags: ['历史','美食','文创'], desc: '千年巴渝古镇，中国历史文化名街，青石板码头街巷，陈麻花、老茶馆、非遗手作遍布，浓缩老重庆码头市井文化。' },
+            { id: 80, name: '渣滓洞监狱旧址', district: '沙坪坝区', tags: ['历史'], desc: '红岩红色核心遗址，旧时小煤窑改造看守所，完整复原牢房、刑讯室，全国重点文保单位，红岩精神研学地标。' },
+            { id: 81, name: '白公馆', district: '沙坪坝区', tags: ['历史'], desc: '歌乐山红色革命旧址，原为私人别墅后改为监狱，陈列革命烈士史料、遗物，与渣滓洞联动红色旅游线路。' },
+            { id: 82, name: '马房湾七彩巷', district: '沙坪坝区', tags: ['文创'], desc: '全长百余米彩虹涂鸦街巷，墙面布满彩色艺术彩绘，毗邻江湖菜馆，逛吃一体小众网红打卡地。' },
+            { id: 83, name: '三峡广场', district: '沙坪坝区', tags: ['美食'], desc: '沙坪坝核心商圈，下沉式步行街，商场、小吃、书店密集，高校学生主要休闲消费区域。' },
+            { id: 84, name: '平顶山文化公园', district: '沙坪坝区', tags: ['自然','观景'], desc: '沙坪坝城市山林公园，山顶观景台俯瞰沙坪坝全域，步道平缓，本地居民日常登山休闲绿地。' },
+            { id: 85, name: '歌乐山森林公园', district: '沙坪坝区', tags: ['自然'], desc: '主城大型生态山林，植被覆盖率高，登山步道纵横，串联渣滓洞、白公馆，兼具红色研学与自然徒步功能。' },
+            { id: 86, name: '海石公园', district: '沙坪坝区', tags: ['自然'], desc: '歌乐山小众喀斯特石林园区，奇石遍布，欧式古堡建筑点缀山间，小众复古拍照休闲园区。' },
+            { id: 87, name: '石井坡彩色房子', district: '沙坪坝区', tags: ['文创'], desc: '老式家属院改造彩色居民楼，整栋楼栋涂刷马卡龙色系，轻轨直达，平价童话风拍照打卡地。' },
+            { id: 88, name: '中梁镇荷塘悦色', district: '沙坪坝区', tags: ['自然'], desc: '近郊田园景观园区，大片荷塘、乡村步道，春夏荷花盛放，近郊短途休闲拍照点位。' },
+            { id: 89, name: '特钢厂文创园', district: '沙坪坝区', tags: ['文创'], desc: '旧钢铁厂改造工业文创园区，大型炼钢设备遗存、巨型涂鸦，重工业风摄影热门场地。' },
+            { id: 90, name: '杨公桥老街美食区', district: '沙坪坝区', tags: ['美食'], desc: '沙坪坝老牌市井美食街区，平价火锅、小面、江湖菜老店聚集，本地人高频觅食原生街巷。' },
+            { id: 91, name: '黄桷坪涂鸦艺术街', district: '九龙坡区', tags: ['文创'], desc: '全长1.25公里全域涂鸦街区，墙面、楼栋布满原创艺术彩绘，川美师生创作核心区域，全国知名艺术地标。' },
+            { id: 92, name: '四川美术学院黄桷坪校区', district: '九龙坡区', tags: ['文创'], desc: '老牌美术院校，校园内雕塑、装置艺术随处可见，红砖老建筑充满艺术氛围，文艺青年必逛园区。' },
+            { id: 93, name: '交通茶馆', district: '九龙坡区', tags: ['美食','历史'], desc: '川美旁四十余年老式市井茶馆，木桌竹椅、盖碗茶，本地老人闲谈下棋，原汁原味老重庆市井茶空间。' },
+            { id: 94, name: '华熙LIVE鱼洞', district: '巴南区', tags: ['文创'], desc: '巴南大型潮流文体商圈，演艺场馆、潮玩商铺、夜市全覆盖，南部主城年轻群体休闲核心地。' },
+            { id: 95, name: '重庆动物园', district: '九龙坡区', tags: ['自然'], desc: '国家4A级城市动物园，饲养大熊猫、金丝猴等珍稀动物，轨道交通2号线直达，亲子出游热门景区。' },
+            { id: 96, name: '义渡古镇', district: '大渡口区', tags: ['历史','美食'], desc: '长江边复古码头古镇，明清砖木民居保存完整，滨江步道、老戏台，小众安静复古文旅街区。' },
+            { id: 97, name: '白居寺大桥观景台', district: '大渡口区', tags: ['观景'], desc: '跨江大桥人行观景通道，宽阔江面视野，拍摄长江、列车、城市建筑全景小众机位。' },
+            { id: 98, name: '金刚碑古村落', district: '北碚区', tags: ['历史','自然'], desc: '嘉陵江边百年古村落，藏于峡谷绿植之间，老式砖木民居隐于林木，清幽治愈原生态古村。' },
+            { id: 99, name: '缙云山步道', district: '北碚区', tags: ['自然'], desc: '国家级自然保护区登山步道，山间古寺、竹海遍布，"缙岭云霞"巴渝十二景之一，主城天然洗肺山林。' },
+            { id: 100, name: '西流沱小镇', district: '巴南区', tags: ['美食','历史'], desc: '滨江仿古文旅小镇，仿明清巴渝建筑群，夜间灯笼氛围感浓厚，配套江景餐饮、休闲市集。' },
+        ];
+
+        let selectedPOIs = new Set();
+        let currentFilter = 'all';
+        let currentTag = '';
+
+        function renderPOIs() {
+            const grid = document.getElementById('poi-grid');
+            grid.innerHTML = '';
+            let filtered = currentFilter === 'all'
+                ? allPOIs
+                : currentFilter === '其他区'
+                    ? allPOIs.filter(p => !['渝中区','南岸区','江北区','沙坪坝区'].includes(p.district))
+                    : allPOIs.filter(p => p.district === currentFilter);
+
+            if (currentTag) {
+                filtered = filtered.filter(p => p.tags && p.tags.includes(currentTag));
+            }
+
+            const cols = Math.floor(grid.offsetWidth / 240) || 5;
+            const totalRows = Math.ceil(filtered.length / cols);
+
+            filtered.forEach((poi, idx) => {
+                const currentRow = Math.floor(idx / cols);
+                const isBottomRow = currentRow >= totalRows - 3;
+                const card = document.createElement('div');
+                card.className = 'poi-card' + (selectedPOIs.has(poi.id) ? ' selected' : '') + (isBottomRow ? ' bottom-row' : '');
+                card.onclick = (e) => {
+                    if (e.target.closest('.poi-tooltip')) return;
+                    if (e.target.closest('.poi-check')) {
+                        selectedPOIs.has(poi.id) ? selectedPOIs.delete(poi.id) : selectedPOIs.add(poi.id);
+                        renderPOIs();
+                        showToast(selectedPOIs.has(poi.id) ? '已添加' : '已移除');
+                        return;
+                    }
+                    document.querySelectorAll('.poi-tooltip').forEach(t => t.style.display = 'none');
+                    card.querySelector('.poi-tooltip').style.display = 'block';
+                };
+                const imgFile = poi.name + '.jpg';
+                const desc = poi.desc || '';
+                card.innerHTML = `
+                    <div class="poi-tooltip">
+                        <div class="tooltip-close" style="position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.4);color:#FFF;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:10;">✕</div>
+                        <img src="/static/images/${encodeURIComponent(imgFile)}" onerror="this.style.display='none';" alt="">
+                        <div class="tooltip-info">
+                            <div class="tooltip-name">${poi.name}</div>
+                            <div class="tooltip-district">${poi.district}</div>
+                            <div class="tooltip-desc">${desc}</div>
+                        </div>
+                    </div>
+                    <div class="poi-check">${selectedPOIs.has(poi.id) ? '✓' : ''}</div>
+                    <div class="poi-info">
+                        <div class="poi-name">${poi.name}</div>
+                        <div class="poi-district">${poi.district}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            updateBar();
+        }
+
+        function updateBar() {
+            const count = selectedPOIs.size;
+            document.getElementById('selection-count').innerHTML = '已选择 <span>' + count + '</span> / 100 个景点';
+            const btn = document.getElementById('start-navigate-btn');
+            if (count >= 2) {
+                btn.classList.add('ready');
+                btn.textContent = '开始导航 (' + count + '个)';
+            } else {
+                btn.classList.remove('ready');
+                btn.textContent = '请至少选择2个景点';
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.tooltip-close')) {
+                const tooltip = e.target.closest('.poi-tooltip');
+                if (tooltip) tooltip.style.display = 'none';
+            }
+        });
+
+        document.getElementById('filter-bar').addEventListener('click', e => {
+            if (e.target.classList.contains('tag-filter')) {
+                document.querySelectorAll('.tag-filter').forEach(t => t.classList.remove('active'));
+                if (currentTag === e.target.dataset.tag) {
+                    currentTag = '';
+                    document.querySelector('[data-filter="all"]').classList.add('active');
+                } else {
+                    e.target.classList.add('active');
+                    currentTag = e.target.dataset.tag;
+                    document.querySelectorAll('[data-filter]:not(.tag-filter)').forEach(t => t.classList.remove('active'));
+                }
+                renderPOIs();
+                return;
+            }
+            if (e.target.classList.contains('filter-tag') && !e.target.classList.contains('tag-filter')) {
+                document.querySelectorAll('.filter-tag:not(.tag-filter)').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tag-filter').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                currentTag = '';
+                renderPOIs();
+            }
+        });
+
+        function startNavigate() {
+            if (selectedPOIs.size < 2) { showToast('请至少选择2个景点'); return; }
+            const ids = Array.from(selectedPOIs).sort((a,b)=>a-b).join(',');
+            window.location.href = '/navigate?mode=free&pois=' + ids + '&from=free';
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toast._timeout);
+            toast._timeout = setTimeout(() => toast.classList.remove('show'), 1500);
+        }
+
+        renderPOIs();
+    </script>
+</body>
+</html>

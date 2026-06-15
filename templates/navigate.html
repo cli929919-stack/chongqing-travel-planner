@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能导航 - 山城故事集</title>
+    <style>
+        :root {
+            --bg-paper: #F7F3EC;
+            --gold-warm: #C8A96E;
+            --gold-deep: #A0845C;
+            --seal-red: #8B3A3A;
+            --seal-red-deep: #6B2020;
+            --ink: #2C2416;
+            --ink-light: #4A3F2F;
+            --text-sub: #8B7D6B;
+            --card-bg: #F2EDE5;
+            --compass-blue: #4A6A78;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Serif SC', 'STSong', 'Songti SC', serif;
+            background: var(--bg-paper);
+            width: 100vw; height: 100vh; overflow: hidden;
+            user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+        #paper-texture {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
+            pointer-events: none; mix-blend-mode: multiply; opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+        }
+        #app-container { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+        #top-bar {
+            position: relative; z-index: 10; padding: 16px 20px; display: flex;
+            align-items: center; justify-content: space-between; flex-shrink: 0;
+            background: linear-gradient(180deg, rgba(247,243,236,0.95) 0%, rgba(247,243,236,0) 100%);
+        }
+        #back-link {
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-size: 13px; color: var(--text-sub); text-decoration: none; cursor: pointer;
+            display: flex; align-items: center; gap: 6px; font-weight: 300;
+            letter-spacing: 0.03em; transition: color 0.3s;
+        }
+        #back-link:hover { color: var(--ink-light); }
+        #route-title { font-family: 'Noto Serif SC', 'STSong', serif; font-weight: 600; font-size: 18px; color: var(--ink); letter-spacing: 0.04em; }
+        #route-summary { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 12px; color: var(--text-sub); font-weight: 300; }
+        #map-container { flex: 1; position: relative; z-index: 5; min-height: 0; }
+        #amap { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        #route-panel {
+            position: relative; z-index: 10; flex-shrink: 0; max-height: 45vh;
+            overflow-y: auto; padding: 0 16px 20px; -webkit-overflow-scrolling: touch;
+            background: linear-gradient(180deg, rgba(247,243,236,0.6) 0%, rgba(247,243,236,0.95) 30px, var(--bg-paper) 100%);
+        }
+        #route-panel::-webkit-scrollbar { width: 3px; }
+        #route-panel::-webkit-scrollbar-thumb { background: rgba(160,132,92,0.3); border-radius: 2px; }
+        #route-panel-header { text-align: center; padding: 8px 0 16px; font-family: 'Noto Serif SC', 'STSong', serif; font-size: 16px; font-weight: 600; color: var(--ink); letter-spacing: 0.04em; }
+        .segment-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 8px; background: var(--card-bg); border-radius: 10px; border: 1px solid rgba(200,169,110,0.15); transition: all 0.3s ease; cursor: pointer; }
+        .segment-card:hover { border-color: rgba(200,169,110,0.4); box-shadow: 0 2px 12px rgba(44,36,22,0.06); }
+        .segment-index { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: rgba(200,169,110,0.15); display: flex; align-items: center; justify-content: center; font-family: 'Noto Serif SC', serif; font-size: 14px; font-weight: 600; color: var(--gold-deep); }
+        .segment-info { flex: 1; min-width: 0; }
+        .segment-route { font-family: 'Noto Serif SC', 'STSong', serif; font-weight: 500; font-size: 14px; color: var(--ink); margin-bottom: 4px; letter-spacing: 0.03em; }
+        .segment-mode { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 12px; font-weight: 400; padding: 3px 10px; border-radius: 12px; display: inline-block; letter-spacing: 0.03em; }
+        .mode-walking { background: rgba(74,122,92,0.12); color: #4A7A5C; }
+        .mode-transit { background: rgba(61,107,139,0.12); color: #3D6B8B; }
+        .mode-driving { background: rgba(196,78,61,0.12); color: #C44E3D; }
+        .segment-stats { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 11px; color: var(--text-sub); font-weight: 300; margin-top: 2px; }
+        .segment-arrow { flex-shrink: 0; color: var(--gold-warm); font-size: 18px; }
+        .segment-nav-btn {
+            flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+            background: #8B3A3A; color: #F5EDE0; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; transition: all 0.3s ease;
+            z-index: 5;
+        }
+        .segment-nav-btn:hover { background: #6B2020; }
+        #overview-bar { display: flex; gap: 16px; justify-content: center; padding: 10px 0 16px; flex-wrap: wrap; }
+        .overview-item { text-align: center; padding: 10px 18px; background: rgba(200,169,110,0.06); border-radius: 8px; }
+        .overview-value { font-family: 'Noto Serif SC', 'STSong', serif; font-weight: 600; font-size: 20px; color: var(--seal-red); }
+        .overview-label { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 11px; color: var(--text-sub); margin-top: 2px; font-weight: 300; }
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 500; background: rgba(247,243,236,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 1; transition: opacity 0.5s ease; pointer-events: all; }
+        #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        #loading-spinner { width: 48px; height: 48px; border: 3px solid rgba(200,169,110,0.2); border-top-color: var(--gold-warm); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-text { font-family: 'Noto Serif SC', 'STSong', serif; font-size: 15px; color: var(--ink-light); letter-spacing: 0.04em; }
+        #loading-sub { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 12px; color: var(--text-sub); margin-top: 8px; font-weight: 300; }
+        @media (max-width: 768px) { #route-panel { max-height: 40vh; } #route-title { font-size: 15px; } .segment-card { padding: 12px 14px; } }
+    </style>
+</head>
+<body>
+    <div id="paper-texture"></div>
+    <div id="loading-overlay">
+        <div id="loading-spinner"></div>
+        <div id="loading-text">正在规划最优路线...</div>
+        <div id="loading-sub">获取位置 · 分析景点 · 计算路径</div>
+    </div>
+    <div id="app-container">
+        <div id="top-bar">
+            <a id="back-link" href="/">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15,4 7,12 15,20"/></svg>
+                返回
+            </a>
+            <div style="text-align:center;"><div id="route-title">智能游览路线</div><div id="route-summary">根据实时位置规划最佳顺序</div></div>
+            <div style="width:50px;"></div>
+        </div>
+        <div id="map-container"><div id="amap"></div></div>
+        <div id="route-panel">
+            <div id="route-panel-header">游览路线详情</div>
+            <div id="overview-bar">
+                <div class="overview-item"><div class="overview-value" id="total-pois">0</div><div class="overview-label">景点数</div></div>
+                <div class="overview-item"><div class="overview-value" id="total-distance">0</div><div class="overview-label">总距离(km)</div></div>
+                <div class="overview-item"><div class="overview-value" id="total-duration">0</div><div class="overview-label">预计耗时(分钟)</div></div>
+            </div>
+            <div id="segments-list"></div>
+        </div>
+    </div>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=904d1c838313bd01aaaac52cedbd9e15&plugin=AMap.Walking,AMap.Driving,AMap.Transfer,AMap.Geocoder"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromPage = urlParams.get('from') || 'story';
+        document.getElementById('back-link').href = fromPage === 'free' ? '/free' : '/story';
+        const AMAP_KEY = '904d1c838313bd01aaaac52cedbd9e15';
+        let map = null, userLocation = null;
+        let allPolylines = [], allMarkers = [];
+        const POI_DATABASE = new Map();
+        const allPOIs = [
+            { id: 1, name: '洪崖洞民俗风貌区', district: '渝中区', desc: '国家4A级景区，嘉陵江畔依山而建的11层巴渝吊脚楼集群，高低层均连通马路，夜间灯火极具梦幻感，是重庆标志性夜景文旅地标。' },
+            { id: 2, name: '解放碑步行街', district: '渝中区', desc: '重庆城市核心商圈，中心矗立中国唯一抗战胜利纪功碑，周边汇聚高端商场、老字号小吃，八一路好吃街集中山城本土小吃。' },
+            { id: 3, name: '长江索道景区', district: '渝中区', desc: '国内首条跨长江客运索道，全长1166米，被誉为"空中公交"，轿厢内可俯瞰两江四岸立体城市全景，多部影视剧取景地。' },
+            { id: 4, name: '来福士水晶连廊', district: '渝中区', desc: '朝天门"朝天扬帆"地标高空观景设施，坐落塔楼52层，300米悬空玻璃廊道直面长江、嘉陵江交汇水域。' },
+            { id: 5, name: '李子坝轻轨观景台', district: '渝中区', desc: '轨道交通2号线专属观景区，轻轨横穿居民楼，全国独有的立体交通奇观，分上下两层观景平台。' },
+            { id: 6, name: '千厮门嘉陵江大桥', district: '渝中区', desc: '跨江公路轨道两用桥梁，人行道为拍摄洪崖洞全景最佳机位，傍晚灯光亮起后桥体、江水、吊脚楼同框。' },
+            { id: 7, name: '魁星楼悬空天桥', district: '渝中区', desc: '临江门山地仿古楼阁配套高空连廊，垂直高差65米，新旧建筑高低错落形成强烈8D山城视觉反差，影视热门取景地。' },
+            { id: 8, name: '白象居', district: '渝中区', desc: '24层无电梯老式居民建筑群，空中连廊串联多栋单元楼，完整保留原生老重庆市井生活场景，《少年的你》取景地。' },
+            { id: 9, name: '十八梯传统风貌区', district: '渝中区', desc: '连接上半城、下半城的千年石梯街区，复原老重庆阶梯街巷肌理，旧时山城棒棒主要通行道路。' },
+            { id: 10, name: '山城巷历史文化步道', district: '渝中区', desc: '沿山脊延伸的原生梯坎步道，千级青石板阶梯串联民国民居、老茶馆、文创小店，完整留存依山而建的老城街巷风貌。' },
+            { id: 11, name: '戴家巷悬崖步道', district: '渝中区', desc: '嘉陵江崖壁慢行步道，直面洪崖洞侧景，避开主景区人流，崖边设置多处观景平台，兼具小众打卡与江景休闲功能。' },
+            { id: 12, name: '重庆中国三峡博物馆', district: '渝中区', desc: '国家级综合性博物馆，毗邻人民大礼堂，馆藏大量三峡文物、巴蜀青铜器、抗战史料，系统展示巴渝千年历史文明。' },
+            { id: 13, name: '重庆人民大礼堂', district: '渝中区', desc: '重庆城市经典地标，仿天坛中式古典建筑形制，琉璃屋顶恢弘大气，前侧广场开阔，是城市文化活动与打卡取景核心区域。' },
+            { id: 14, name: '湖广会馆', district: '渝中区', desc: '清代移民古建筑群，核心禹王宫供奉大禹治水塑像，融合湖广、江南民居雕刻工艺，配套古戏台，市级重点文保单位。' },
+            { id: 15, name: '曾家岩50号周公馆', district: '渝中区', desc: '抗战时期中共中央南方局城内办公驻地，周恩来、邓颖超长期在此工作生活，全国重点文保单位，记录陪都地下统战历史。' },
+            { id: 16, name: '大轰炸六五隧道遗址', district: '渝中区', desc: '1941年日军轰炸遇难事件原址防空隧道，留存原始掩体结构，陈列遇难史料、文物，是日军无差别轰炸山城的实物见证。' },
+            { id: 17, name: '通远门城墙遗址公园', district: '渝中区', desc: '重庆现存最完整明代古城门，古时城西陆路通关门户，保留瓮城、古城墙本体，配套图文展馆解读老城"九开十三门"建制。' },
+            { id: 18, name: '东水门古城门遗址', district: '渝中区', desc: '明代临江老城门遗存，旧时长江水运通关要道，残存石砌城门基座与古城墙，依托滨江步道打造老城历史展示节点。' },
+            { id: 19, name: '白象街人和门遗址', district: '渝中区', desc: '明代小型闭门残段，隐匿于白象街民居之间，留存原生石砌城墙，结合复古老街打造明清码头城门文化打卡点。' },
+            { id: 20, name: '太平门瓮城遗址', district: '渝中区', desc: '长江沿岸明代瓮城基址，古时商贸水运枢纽，考古保留完整墙体遗迹，配套历史解说牌还原当年码头市井风貌。' },
+            { id: 21, name: '鹅岭二厂文创公园', district: '渝中区', desc: '前身民国中央银行印钞厂，地处渝中半岛制高点，旧厂房改造文艺园区，天台可俯瞰两江交汇，《从你的全世界路过》取景地。' },
+            { id: 22, name: '鹅岭公园瞰胜楼', district: '渝中区', desc: '渝中区老牌城市山林公园，山顶瞰胜楼360°俯瞰全城，植被茂密清幽，民国时期私家园林改造而成，免费城市观景绿地。' },
+            { id: 23, name: '国泰艺术中心', district: '渝中区', desc: '现代地标文艺场馆，红黑交织几何建筑极具辨识度，配套美术馆、剧场，常年举办美术展览、话剧演出，解放碑文艺打卡地。' },
+            { id: 24, name: '较场口夜市', district: '渝中区', desc: '渝中区老牌夜间市集，依托老城区街巷分布火锅、烧烤、特色小吃，夜间烟火氛围浓厚，本地人与游客高频觅食街区。' },
+            { id: 25, name: '抗建堂', district: '渝中区', desc: '1941年落成民国专业剧场，抗战时期全国话剧核心阵地，郭沫若、曹禺等名家在此排演救国剧目，兼具剧场与戏剧史料展馆功能。' },
+            { id: 26, name: '新华日报旧址', district: '渝中区', desc: '抗战时期中共机关报办公旧址，完整复原编辑部、印刷间，陈列报刊原稿、历史照片，记录战时红色新闻宣传历程。' },
+            { id: 27, name: '罗汉寺', district: '渝中区', desc: '千年禅宗古刹，闹市中心清净寺院，拥有宋代摩崖石刻罗汉造像，《疯狂的石头》取景地，香火旺盛兼具人文与影视打卡属性。' },
+            { id: 28, name: '黄花园滨江步道', district: '渝中区', desc: '嘉陵江南岸慢行江岸绿地，紧邻黄花园大桥与轨道交通线路，近距离观赏轻轨跨江场景，静谧小众轨道风光步道。' },
+            { id: 29, name: '新都巷揽胜亭', district: '渝中区', desc: '半山小众观景平台，无遮挡平视嘉陵江、跨江大桥与轨道列车，人少视野开阔，拍摄立体山城长焦机位。' },
+            { id: 30, name: '小什字观景平台', district: '渝中区', desc: '长江索道楼下城市观景台，同步拍摄索道轿厢、白象居建筑群、两江高楼，地处交通枢纽出行便捷。' },
+            { id: 31, name: '打枪坝水厂旧址', district: '渝中区', desc: '百年城市供水工业遗存，民国时期主城核心水厂，石砌水池、老厂房保留完整，小众工业历史打卡点位。' },
+            { id: 32, name: '沈钧儒旧居', district: '渝中区', desc: '抗战时期爱国民主人士居住旧址，老式砖木民居，陈列生平史料，记录陪都时期爱国民主运动历史。' },
+            { id: 33, name: '中法学校旧址', district: '渝中区', desc: '早期革命办学遗址，近代西式小楼建筑，复原课堂陈设，展示重庆早期红色教育发展历程。' },
+            { id: 34, name: '山城巷防空洞', district: '渝中区', desc: '改造活化民国防空洞，融合文创、茶饮、民俗展示，依托山城步道打造防空文化沉浸式打卡空间。' },
+            { id: 35, name: '洞亭火锅防空洞店', district: '渝中区', desc: '原生防空洞改造特色火锅店，利用战时地下掩体打造就餐空间，兼具防空洞历史体验与重庆火锅美食属性。' },
+            { id: 36, name: '南山一棵树观景台', district: '南岸区', desc: '公认重庆夜景核心观景点，南山半山腰平台，无遮挡俯瞰完整渝中半岛两江灯火，雨雾天气契合"巴山夜雨"诗意氛围。' },
+            { id: 37, name: '龙门浩老街', district: '南岸区', desc: '南滨路复古老街，开埠时期洋行、领事馆遗存建筑集群，直面渝中夜景，兼具江景、民国建筑、特色餐饮多重体验。' },
+            { id: 38, name: '下浩里老街', district: '南岸区', desc: '原生市井老街，保留未过度商业化老式民居、石阶、古树，文创小店与老茶馆相融，充满原生老城烟火氛围感。' },
+            { id: 39, name: '弹子石老街', district: '南岸区', desc: '滨江仿古文旅街区，融合民国建筑、巴渝吊脚楼，临江露台对望渝中半岛，火锅、江湖菜、本土小吃集中分布。' },
+            { id: 40, name: '长嘉汇购物公园', district: '南岸区', desc: '弹子石滨江潮流商圈，开阔临江观景平台，常态化举办动漫展、同人市集，是主城核心二次元线下聚集地。' },
+            { id: 41, name: '海棠溪轻轨站', district: '南岸区', desc: '环线网红车站，弧形复古廊桥临江修建，列车、江水、桥梁同框画面充满动漫质感，摄影、二次元爱好者热门取景地。' },
+            { id: 42, name: '老君洞道观', district: '南岸区', desc: '南山千年道教建筑群，依山分层修建，登顶可俯瞰长江与主城，古木清幽，留存大量石刻碑记，兼具登山与人文观赏价值。' },
+            { id: 43, name: '南山植物园', district: '南岸区', desc: '南山大型城市植物园，分区培育各类珍稀绿植，盆景园区静水池塘氛围感浓厚，雨雾天完美诠释巴山夜雨山林意境。' },
+            { id: 44, name: '南山文峰塔', district: '南岸区', desc: '南山山顶清代七层石塔，区域登高制高点，远眺长江与渝中全城，雾天塔身隐于山间云雾，古风诗意浓厚。' },
+            { id: 45, name: '涂山寺', district: '南岸区', desc: '重庆现存最早千年古刹，始建禹王祠纪念大禹治水，留存治水摩崖石刻，承载大禹娶涂山氏上古本土传说。' },
+            { id: 46, name: '黄葛古道', district: '南岸区', desc: '八百年青石板登山梯道，古时川黔商贸要道，数千级石阶串联涂山寺、老君洞，旧时棒棒挑夫往返南山必经之路。' },
+            { id: 47, name: '呼归石观景处', district: '南岸区', desc: '南滨路人文景观节点，对应涂山氏望夫化石传说，原址巨石搬迁后设纪念观景平台，直面两江交汇水域。' },
+            { id: 48, name: '南滨路滨江步道', district: '南岸区', desc: '南岸沿江超长慢行绿道，全程可观渝中天际线，串联龙门浩、弹子石多处老街，夜游江景首选步道。' },
+            { id: 49, name: '壹华里夜景公园', district: '南岸区', desc: '南山平价夜景公园，多层阶梯观景台，视野开阔，人流量少于一棵树，配套夜市小吃，平价观夜点位。' },
+            { id: 50, name: '壹华里市集', district: '南岸区', desc: '仿古民俗市集，依托夜景公园打造，非遗手作、特色小吃集中，傍晚可同步游览市集与山顶城市灯火。' },
+            { id: 51, name: '江南体育中心观景台', district: '南岸区', desc: '南岸滨江休闲观景平台，视野平缓开阔，可拍摄跨江大桥与轨道列车，人少静谧适合休闲散步。' },
+            { id: 52, name: '弹子石广场', district: '南岸区', desc: '滨江城市休闲广场，直面朝天门两江汇流，开阔绿地适合露营、休闲打卡，配套商业餐饮。' },
+            { id: 53, name: '法国水师兵营旧址', district: '南岸区', desc: '清末开埠西洋建筑，法式城堡风格，改造为展馆、咖啡馆，留存百年开埠外交历史遗迹。' },
+            { id: 54, name: '黄桷渡步道', district: '南岸区', desc: '上新街临江小众梯坎步道，连通索道南站与南滨路，石阶临江，近距离观赏长江江景与往来游船。' },
+            { id: 55, name: '南山涂山雕塑公园', district: '南岸区', desc: '涂山人文主题公园，大禹治水系列雕塑遍布园区，山林步道串联石刻、观景平台，上古治水文化主题园区。' },
+            { id: 56, name: '放牛坪步道', district: '南岸区', desc: '南山原生态登山步道，植被茂密人迹稀少，徒步登顶可俯瞰长江，小众自然休闲登山线路。' },
+            { id: 57, name: '上新街索道南站', district: '南岸区', desc: '长江索道南岸始发站，复古站楼建筑，周边配套龙门浩老街，反向乘坐索道可大幅减少排队时长。' },
+            { id: 58, name: '崇文湖公园', district: '南岸区', desc: '南山配套城市湖泊公园，湖水静谧，绿植环绕，临近一棵树观景台，上山途中休闲休憩点位。' },
+            { id: 59, name: '呼归石花阶公园', district: '南岸区', desc: '滨江阶梯式花卉景观公园，多层花海平台直面两江交汇，四季绿植鲜花，小众江景拍照打卡地。' },
+            { id: 60, name: 'S95超次元中心', district: '南岸区', desc: '南岸大型综合ACGN场馆，整合手办潮玩、动漫展览、cosplay场地、剧本杀，主城规模领先二次元综合空间。' },
+            { id: 61, name: '观音桥步行街', district: '江北区', desc: '江北核心潮流商圈，本地人首选休闲街区，巨型城市打卡标语墙，商场、小吃街、潮店密集，夜间人气旺盛。' },
+            { id: 62, name: '观音桥好吃街', district: '江北区', desc: '地下多层美食市集，汇聚川渝各地平价小吃、江湖烧烤，消费亲民，是主城规模最大室内美食街区之一。' },
+            { id: 63, name: '北仓文创园', district: '江北区', desc: '旧纺织厂改造文艺园区，红砖工业厂房搭配网红花店、咖啡馆，复古工业风拍照出片，紧邻观音桥商圈。' },
+            { id: 64, name: '鸿恩寺森林公园', district: '江北区', desc: '主城大型城市山林公园，山顶鸿恩阁多层仿古阁楼，夜间灯光华美，可360°俯瞰主城全景。' },
+            { id: 65, name: '江北嘴中央公园', district: '江北区', desc: '江北嘴城市中央绿地，草坪开阔，直面渝中半岛，近距离观赏千厮门大桥夜景，休闲露营热门绿地。' },
+            { id: 66, name: '重庆大剧院', district: '江北区', desc: '江北嘴现代地标场馆，流线型玻璃建筑，临江而立，傍晚拍摄建筑与江景、大桥同框，文艺夜景打卡点。' },
+            { id: 67, name: '江北嘴江滩公园', district: '江北区', desc: '嘉陵江北岸滨江滩涂公园，亲水步道直达江边，拍摄洪崖洞、千厮门大桥全景最佳低位机位。' },
+            { id: 68, name: '北滨路A台观景步道', district: '江北区', desc: '江北滨江高空观景平台，完整收纳渝中建筑群、跨江轨道、嘉陵江江面，全景拍摄立体山城绝佳点位。' },
+            { id: 69, name: '九街高屋', district: '江北区', desc: '江北潮流夜生活街区，潮牌店铺、清吧、网红餐饮集中，年轻群体聚集，夜间潮流氛围感突出。' },
+            { id: 70, name: '方圆LIVE次元街区', district: '江北区', desc: '观音桥地下二次元集中街区，手办、动漫周边、小众潮店全覆盖，定期举办漫展、同人市集，江北年轻次元聚集地。' },
+            { id: 71, name: '鎏嘉码头', district: '江北区', desc: '北滨路滨江复古文旅街区，仿民国码头建筑，临江餐饮、清吧密集，夜游江景休闲消费街区。' },
+            { id: 72, name: '三洞桥民俗风情街', district: '江北区', desc: '江北老式民俗街巷，巴渝民居风格建筑，特色江湖菜、老字号小店聚集，小众市井打卡街区。' },
+            { id: 73, name: '塔坪社区网红小巷', district: '江北区', desc: '江北老式居民社区改造文艺小巷，彩绘墙面、小众咖啡馆密布，生活化文艺拍照小众点位。' },
+            { id: 74, name: '猫儿石文创园', district: '江北区', desc: '旧造纸厂改造文创园区，工业遗存与艺术展厅结合，人少清静，适合拍摄复古工业风照片。' },
+            { id: 75, name: '石子山体育公园', district: '江北区', desc: '大型城市综合体育公园，配套草坪、观景平台，远眺主城山体，市民日常休闲健身绿地。' },
+            { id: 76, name: '江北嘴福音堂', district: '江北区', desc: '西式百年基督教堂，临江矗立，复古哥特式建筑，搭配江景氛围感强，婚纱、文艺摄影热门取景地。' },
+            { id: 77, name: '聚贤岩广场', district: '江北区', desc: '江北嘴滨江休闲广场，紧邻大剧院，平缓绿地可观赏跨江桥梁与渝中夜景，短途散步休闲点位。' },
+            { id: 78, name: '溉澜溪滨江公园', district: '江北区', desc: '江北东段滨江绿地，人流稀少，视野开阔，远眺长江与南山，静谧小众沿江步道。' },
+            { id: 79, name: '磁器口古镇', district: '沙坪坝区', desc: '千年巴渝古镇，中国历史文化名街，青石板码头街巷，陈麻花、老茶馆、非遗手作遍布，浓缩老重庆码头市井文化。' },
+            { id: 80, name: '渣滓洞监狱旧址', district: '沙坪坝区', desc: '红岩红色核心遗址，旧时小煤窑改造看守所，完整复原牢房、刑讯室，全国重点文保单位，红岩精神研学地标。' },
+            { id: 81, name: '白公馆', district: '沙坪坝区', desc: '歌乐山红色革命旧址，原为私人别墅后改为监狱，陈列革命烈士史料、遗物，与渣滓洞联动红色旅游线路。' },
+            { id: 82, name: '马房湾七彩巷', district: '沙坪坝区', desc: '全长百余米彩虹涂鸦街巷，墙面布满彩色艺术彩绘，毗邻江湖菜馆，逛吃一体小众网红打卡地。' },
+            { id: 83, name: '三峡广场', district: '沙坪坝区', desc: '沙坪坝核心商圈，下沉式步行街，商场、小吃、书店密集，高校学生主要休闲消费区域。' },
+            { id: 84, name: '平顶山文化公园', district: '沙坪坝区', desc: '沙坪坝城市山林公园，山顶观景台俯瞰沙坪坝全域，步道平缓，本地居民日常登山休闲绿地。' },
+            { id: 85, name: '歌乐山森林公园', district: '沙坪坝区', desc: '主城大型生态山林，植被覆盖率高，登山步道纵横，串联渣滓洞、白公馆，兼具红色研学与自然徒步功能。' },
+            { id: 86, name: '海石公园', district: '沙坪坝区', desc: '歌乐山小众喀斯特石林园区，奇石遍布，欧式古堡建筑点缀山间，小众复古拍照休闲园区。' },
+            { id: 87, name: '石井坡彩色房子', district: '沙坪坝区', desc: '老式家属院改造彩色居民楼，整栋楼栋涂刷马卡龙色系，轻轨直达，平价童话风拍照打卡地。' },
+            { id: 88, name: '中梁镇荷塘悦色', district: '沙坪坝区', desc: '近郊田园景观园区，大片荷塘、乡村步道，春夏荷花盛放，近郊短途休闲拍照点位。' },
+            { id: 89, name: '特钢厂文创园', district: '沙坪坝区', desc: '旧钢铁厂改造工业文创园区，大型炼钢设备遗存、巨型涂鸦，重工业风摄影热门场地。' },
+            { id: 90, name: '杨公桥老街美食区', district: '沙坪坝区', desc: '沙坪坝老牌市井美食街区，平价火锅、小面、江湖菜老店聚集，本地人高频觅食原生街巷。' },
+            { id: 91, name: '黄桷坪涂鸦艺术街', district: '九龙坡区', desc: '全长1.25公里全域涂鸦街区，墙面、楼栋布满原创艺术彩绘，川美师生创作核心区域，全国知名艺术地标。' },
+            { id: 92, name: '四川美术学院黄桷坪校区', district: '九龙坡区', desc: '老牌美术院校，校园内雕塑、装置艺术随处可见，红砖老建筑充满艺术氛围，文艺青年必逛园区。' },
+            { id: 93, name: '交通茶馆', district: '九龙坡区', desc: '川美旁四十余年老式市井茶馆，木桌竹椅、盖碗茶，本地老人闲谈下棋，原汁原味老重庆市井茶空间。' },
+            { id: 94, name: '华熙LIVE鱼洞', district: '巴南区', desc: '巴南大型潮流文体商圈，演艺场馆、潮玩商铺、夜市全覆盖，南部主城年轻群体休闲核心地。' },
+            { id: 95, name: '重庆动物园', district: '九龙坡区', desc: '国家4A级城市动物园，饲养大熊猫、金丝猴等珍稀动物，轨道交通2号线直达，亲子出游热门景区。' },
+            { id: 96, name: '义渡古镇', district: '大渡口区', desc: '长江边复古码头古镇，明清砖木民居保存完整，滨江步道、老戏台，小众安静复古文旅街区。' },
+            { id: 97, name: '白居寺大桥观景台', district: '大渡口区', desc: '跨江大桥人行观景通道，宽阔江面视野，拍摄长江、列车、城市建筑全景小众机位。' },
+            { id: 98, name: '金刚碑古村落', district: '北碚区', desc: '嘉陵江边百年古村落，藏于峡谷绿植之间，老式砖木民居隐于林木，清幽治愈原生态古村。' },
+            { id: 99, name: '缙云山步道', district: '北碚区', desc: '国家级自然保护区登山步道，山间古寺、竹海遍布，"缙岭云霞"巴渝十二景之一，主城天然洗肺山林。' },
+            { id: 100, name: '西流沱小镇', district: '巴南区', desc: '滨江仿古文旅小镇，仿明清巴渝建筑群，夜间灯笼氛围感浓厚，配套江景餐饮、休闲市集。' },
+        ];
+        allPOIs.forEach(p => POI_DATABASE.set(p.id, p));
+        const STORY_THEMES = {
+            '时空档案：重返 1941 雾都暗战': { poi_ids: [15, 101, 16, 25] },
+            '光影回响：寻找失落的银幕碎片': { poi_ids: [21, 7, 8, 3] },
+            '不夜山城：寻找第九号重力逆转点': { poi_ids: [4, 5, 7, 1] },
+            '山城烟火：寻味巴渝地道江湖味': { poi_ids: [102, 103, 104, 105] },
+            '江山孤傲：大禹与巴渝长河志': { poi_ids: [45, 106, 47, 46] },
+            '潮玩江岸：二次元的破壁幻境': { poi_ids: [40, 60, 41, 70] },
+            '雾锁双江：消失的九开十三门': { poi_ids: [17, 18, 19, 20] },
+            '轻轨狂热：折叠都市的重力弦切线': { poi_ids: [107, 108, 5, 28] },
+            '巴山夜雨：南山之巅的时空对齐': { poi_ids: [36, 42, 43, 44] },
+            '梯坎岁月：寻找最后一位山城棒棒': { poi_ids: [9, 10, 109, 46] },
+        };
+        function getURLParams() { const p = new URLSearchParams(window.location.search); return { mode: p.get('mode'), theme: p.get('theme'), poisStr: p.get('pois') }; }
+        function getUserLocation() {
+            return new Promise(resolve => {
+                if (navigator.geolocation) { navigator.geolocation.getCurrentPosition(pos => resolve({ lng: pos.coords.longitude, lat: pos.coords.latitude, name: '我的位置' }), err => { console.warn('定位失败:', err.message); resolve({ lng: 106.575, lat: 29.558, name: '解放碑（默认位置）' }); }, { timeout: 5000, enableHighAccuracy: true }); }
+                else { resolve({ lng: 106.575, lat: 29.558, name: '解放碑（默认位置）' }); }
+            });
+        }
+        function getTargetPOIs() {
+            const { mode, theme, poisStr } = getURLParams();
+            if (mode === 'story' && theme && STORY_THEMES[theme]) { return STORY_THEMES[theme].poi_ids.map(id => POI_DATABASE.get(id)).filter(Boolean); }
+            if (mode === 'free' && poisStr) { return poisStr.split(',').map(Number).filter(n => !isNaN(n)).map(id => POI_DATABASE.get(id)).filter(Boolean); }
+            return [];
+        }
+        async function geocodePOIs(poiList) {
+            const geocoded = [];
+            for (let i = 0; i < poiList.length; i++) {
+                const poi = poiList[i];
+                document.getElementById('loading-sub').textContent = `正在获取景点坐标... (${i+1}/${poiList.length})`;
+                const cached = POI_DATABASE.get(poi.id);
+                if (cached && cached.lng && cached.lat && !isNaN(cached.lng) && !isNaN(cached.lat) && cached.lng > 106.2 && cached.lng < 106.7 && cached.lat > 29.3 && cached.lat < 29.9) { geocoded.push(cached); continue; }
+                const address = poi.district + ' ' + poi.name;
+                const url = `https://restapi.amap.com/v3/geocode/geo?key=${AMAP_KEY}&address=${encodeURIComponent(address)}&city=重庆&citylimit=true&output=json`;
+                try {
+                    const resp = await fetch(url); const data = await resp.json();
+                    if (data.status === '1' && data.geocodes && data.geocodes.length > 0) {
+                        const geo = data.geocodes[0]; const lnglat = geo.location.split(',');
+                        const lng = parseFloat(lnglat[0]), lat = parseFloat(lnglat[1]);
+                        if (!isNaN(lng) && !isNaN(lat) && lng > 106.2 && lng < 106.7 && lat > 29.3 && lat < 29.9) {
+                            const result = { id: poi.id, name: poi.name, district: poi.district, desc: poi.desc, lng: lng, lat: lat };
+                            POI_DATABASE.set(poi.id, result); geocoded.push(result); continue;
+                        }
+                    }
+                } catch (e) { console.warn('地理编码失败:', poi.name, e); }
+                const fallback = { id: poi.id, name: poi.name, district: poi.district, desc: poi.desc, lng: 106.55 + Math.random() * 0.05, lat: 29.54 + Math.random() * 0.04 };
+                POI_DATABASE.set(poi.id, fallback); geocoded.push(fallback);
+            }
+            return geocoded;
+        }
+        function haversineDistance(lng1, lat1, lng2, lat2) {
+            const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+        function optimizeRouteOrder(origin, waypoints) {
+            const remaining = [...waypoints], ordered = [];
+            let current = origin;
+            while (remaining.length > 0) {
+                let idx = 0, minDist = Infinity;
+                remaining.forEach((p, i) => { const d = haversineDistance(current.lng, current.lat, p.lng, p.lat); if (d < minDist) { minDist = d; idx = i; } });
+                ordered.push(remaining.splice(idx, 1)[0]);
+                current = { lng: ordered[ordered.length - 1].lng, lat: ordered[ordered.length - 1].lat };
+            }
+            return ordered;
+        }
+        function parsePolyline(polylineStr) {
+            if (!polylineStr) return [];
+            const points = [], arr = polylineStr.split(';');
+            for (let i = 0; i < arr.length; i++) { const pair = arr[i].split(','); if (pair.length === 2) { const lng = parseFloat(pair[0]), lat = parseFloat(pair[1]); if (!isNaN(lng) && !isNaN(lat)) points.push([lng, lat]); } }
+            return points;
+        }
+        async function fetchDrivingRoute(origin, destination) {
+            const url = `https://restapi.amap.com/v3/direction/driving?key=${AMAP_KEY}&origin=${origin.lng},${origin.lat}&destination=${destination.lng},${destination.lat}&strategy=0&extensions=all`;
+            try {
+                const resp = await fetch(url); const data = await resp.json();
+                if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
+                    const path = data.route.paths[0]; let polyline = [];
+                    if (path.polyline) { if (typeof path.polyline === 'string') { polyline = parsePolyline(path.polyline); } else if (Array.isArray(path.polyline)) { polyline = path.polyline; } }
+                    if (polyline.length === 0 && path.steps) { path.steps.forEach(step => { if (step.tmcs && step.tmcs.length > 0) { step.tmcs.forEach(tmc => { polyline = polyline.concat(parsePolyline(tmc.polyline || '')); }); } }); }
+                    if (polyline.length === 0) { polyline = [[origin.lng, origin.lat], [destination.lng, destination.lat]]; }
+                    return { distance: parseInt(path.distance) / 1000, duration: Math.round(parseInt(path.duration) / 60), polyline: polyline, mode: 'driving' };
+                }
+            } catch (e) { console.warn('驾车路线失败:', e); }
+            return null;
+        }
+        async function fetchWalkingRoute(origin, destination) {
+            const url = `https://restapi.amap.com/v3/direction/walking?key=${AMAP_KEY}&origin=${origin.lng},${origin.lat}&destination=${destination.lng},${destination.lat}&extensions=all`;
+            try {
+                const resp = await fetch(url); const data = await resp.json();
+                if (data.status === '1' && data.route && data.route.paths && data.route.paths.length > 0) {
+                    const path = data.route.paths[0]; let polyline = [[origin.lng, origin.lat]];
+                    if (path.steps && path.steps.length > 0) { path.steps.forEach(step => { const sp = parsePolyline(step.polyline || ''); sp.forEach(p => { const last = polyline[polyline.length - 1]; if (p[0] !== last[0] || p[1] !== last[1]) polyline.push(p); }); }); }
+                    if (polyline.length < 2) polyline = [[origin.lng, origin.lat], [destination.lng, destination.lat]];
+                    return { distance: parseInt(path.distance) / 1000, duration: Math.round(parseInt(path.duration) / 60), polyline: polyline, mode: 'walking' };
+                }
+            } catch (e) { console.warn('步行路线失败:', e); }
+            return null;
+        }
+        async function fetchTransitRoute(origin, destination) {
+            const url = `https://restapi.amap.com/v3/direction/transit/integrated?key=${AMAP_KEY}&origin=${origin.lng},${origin.lat}&destination=${destination.lng},${destination.lat}&city=重庆&strategy=0&extensions=all`;
+            try {
+                const resp = await fetch(url); const data = await resp.json();
+                if (data.status === '1' && data.route && data.route.transits && data.route.transits.length > 0) {
+                    const transit = data.route.transits[0], segments = transit.segments || [];
+                    let detailParts = [], allPolyline = [[origin.lng, origin.lat]];
+                    segments.forEach(seg => {
+                        if (seg.bus && seg.bus.buslines && seg.bus.buslines.length > 0) {
+                            const busline = seg.bus.buslines[0], type = busline.type || '公交';
+                            const typeLabel = type.includes('地铁') || type.includes('轨道') ? '地铁' : type.includes('轻轨') ? '轻轨' : '公交';
+                            detailParts.push(typeLabel + (busline.name || ''));
+                            if (busline.polyline) { const bp = parsePolyline(busline.polyline); bp.forEach(p => { const last = allPolyline[allPolyline.length - 1]; if (p[0] !== last[0] || p[1] !== last[1]) allPolyline.push(p); }); }
+                        } else if (seg.walking) {
+                            detailParts.push('步行' + seg.walking.distance + '米');
+                            if (seg.walking.steps) { seg.walking.steps.forEach(step => { const sp = parsePolyline(step.polyline || ''); sp.forEach(p => { const last = allPolyline[allPolyline.length - 1]; if (p[0] !== last[0] || p[1] !== last[1]) allPolyline.push(p); }); }); }
+                        }
+                    });
+                    if (allPolyline.length < 2) allPolyline = [[origin.lng, origin.lat], [destination.lng, destination.lat]];
+                    return { distance: parseInt(transit.distance) / 1000, duration: Math.round(parseInt(transit.duration) / 60), polyline: allPolyline, mode: 'transit', detail: detailParts.join(' → ') };
+                }
+            } catch (e) { console.warn('公交路线失败:', e); }
+            return null;
+        }
+        async function planAllSegments(origin, orderedPOIs) {
+            const segments = []; let prev = origin;
+            const modeLabels = { driving: '驾车', walking: '步行', transit: '地铁/轻轨' }, modeClasses = { driving: 'mode-driving', walking: 'mode-walking', transit: 'mode-transit' };
+            for (let i = 0; i < orderedPOIs.length; i++) {
+                const poi = orderedPOIs[i], straightDist = haversineDistance(prev.lng, prev.lat, poi.lng, poi.lat); let result = null;
+                document.getElementById('loading-sub').textContent = `正在规划第 ${i+1}/${orderedPOIs.length} 段路线...`;
+                if (straightDist < 1.0) { result = await fetchWalkingRoute(prev, poi); if (!result) result = await fetchDrivingRoute(prev, poi); }
+                else if (straightDist >= 1.0 && straightDist < 15) { result = await fetchTransitRoute(prev, poi); if (!result) result = await fetchDrivingRoute(prev, poi); }
+                else { result = await fetchDrivingRoute(prev, poi); if (!result) result = await fetchTransitRoute(prev, poi); }
+                let instruction;
+                if (result && result.mode === 'transit' && result.detail) { instruction = `地铁/轻轨约${result.duration}分钟 · ${result.distance.toFixed(1)}km · ${result.detail}`; }
+                else if (result) { instruction = `${modeLabels[result.mode]}约${result.duration}分钟 · ${result.distance.toFixed(1)}km`; }
+                else { instruction = `驾车约${Math.round(straightDist / 30 * 60)}分钟 · ${straightDist.toFixed(1)}km`; }
+                segments.push({ index: i + 1, from: prev.name, to: poi.name, toLng: poi.lng, toLat: poi.lat, distance: result ? result.distance : straightDist, duration: result ? result.duration : Math.round(straightDist / 30 * 60), mode: result ? result.mode : 'driving', modeLabel: result ? modeLabels[result.mode] : '驾车', modeClass: result ? modeClasses[result.mode] : 'mode-driving', instruction: instruction, polyline: (result && result.polyline && result.polyline.length >= 2) ? result.polyline : [[prev.lng, prev.lat], [poi.lng, poi.lat]] });
+                prev = { lng: poi.lng, lat: poi.lat, name: poi.name };
+            }
+            return segments;
+        }
+        function initMap(origin, orderedPOIs, segments) {
+            orderedPOIs = orderedPOIs.filter(p => p && !isNaN(p.lng) && !isNaN(p.lat) && p.lng > 100 && p.lng < 110 && p.lat > 28 && p.lat < 32);
+            if (orderedPOIs.length === 0) { document.getElementById('loading-text').textContent = '景点坐标获取失败'; document.getElementById('loading-sub').textContent = '请返回重新选择'; return; }
+            if (isNaN(origin.lng) || isNaN(origin.lat)) { origin = { lng: 106.575, lat: 29.558, name: '解放碑（默认位置）' }; }
+            map = new AMap.Map('amap', { zoom: 13, center: [origin.lng, origin.lat], mapStyle: 'amap://styles/whitesmoke', viewMode: '3D', pitch: 40 });
+            map.setBounds(new AMap.Bounds([106.3, 29.3], [106.7, 29.9]));
+            map.setZooms([10, 18]);
+            map.setLimitBounds(new AMap.Bounds([106.1, 29.1], [107.0, 30.0]));
+            const userMarker = new AMap.Marker({ position: [origin.lng, origin.lat], title: origin.name, icon: new AMap.Icon({ size: new AMap.Size(28, 28), image: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><circle cx="14" cy="14" r="12" fill="#4A6A78" stroke="#fff" stroke-width="3"/><circle cx="14" cy="14" r="4" fill="#fff"/></svg>'), imageSize: new AMap.Size(28, 28) }), anchor: 'center', zIndex: 100 });
+            map.add(userMarker);
+            allPolylines = []; allMarkers = [userMarker];
+            const colors = ['#C8A96E', '#A0845C', '#D4C5A0', '#8B6B3E', '#B8956A'];
+            let allPoints = [[origin.lng, origin.lat]];
+            orderedPOIs.forEach((poi, i) => {
+                const marker = new AMap.Marker({ position: [poi.lng, poi.lat], title: poi.name, label: { content: `<div style="background:#8B3A3A;color:#F7F3EC;padding:3px 8px;border-radius:10px;font-size:11px;font-family:'Noto Serif SC',serif;">${i+1}.${poi.name}</div>`, direction: 'top', offset: new AMap.Pixel(0, -10) }, icon: new AMap.Icon({ size: new AMap.Size(22, 22), image: 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="10" fill="#8B3A3A" stroke="#F7F3EC" stroke-width="2"/><text x="11" y="15" text-anchor="middle" fill="#F7F3EC" font-size="10" font-weight="bold">${i+1}</text></svg>`), imageSize: new AMap.Size(22, 22) }), anchor: 'center', zIndex: 99 - i });
+                map.add(marker); allMarkers.push(marker);
+                marker.on('click', function() {
+                    const desc = poi.desc || '暂无简介';
+                    const navUrl = userLocation ? `https://uri.amap.com/navigation?from=${userLocation.lng},${userLocation.lat},我的位置&to=${poi.lng},${poi.lat},${encodeURIComponent(poi.name)}&mode=car&callnative=1` : `https://uri.amap.com/navigation?to=${poi.lng},${poi.lat},${encodeURIComponent(poi.name)}&mode=car&callnative=1`;
+                    const infoContent = `<div style="width:260px;padding:0;font-family:'Noto Serif SC','STSong',serif;overflow:hidden;border-radius:8px;"><div style="width:100%;height:200px;overflow:hidden;background:#EDE0D0;"><img src="/static/images/${encodeURIComponent(poi.name + '.jpg')}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:#EDE0D0;color:#A09080;font-size:12px;">📷 ${poi.name}</div></div><div style="padding:14px 16px;"><div style="font-size:16px;font-weight:600;color:#2C2416;margin-bottom:4px;">${poi.name}</div><div style="font-size:11px;color:#8B7D6B;margin-bottom:10px;">📍 ${poi.district} · 景点编号 #${poi.id}</div><div style="font-size:12px;color:#4A3F2F;line-height:1.7;margin-bottom:12px;">${desc}</div><div onclick="window.open('${navUrl}','_blank')" style="padding:8px 0;background:#8B3A3A;color:#F7F3EC;border-radius:6px;text-align:center;font-size:13px;cursor:pointer;letter-spacing:0.04em;">🧭 导航到 ${poi.name}</div></div></div>`;
+                    const infoWindow = new AMap.InfoWindow({ content: infoContent, offset: new AMap.Pixel(0, -35) });
+                    infoWindow.open(map, [poi.lng, poi.lat]);
+                });
+            });
+            segments.forEach((seg, i) => {
+                if (seg.polyline && seg.polyline.length >= 2) {
+                    const validPath = [];
+                    for (let j = 0; j < seg.polyline.length; j++) { const p = seg.polyline[j]; if (p && p.length === 2 && !isNaN(p[0]) && !isNaN(p[1]) && p[0] > 100 && p[0] < 110 && p[1] > 28 && p[1] < 32) { validPath.push(p); } }
+                    if (validPath.length >= 2) {
+                        allPoints = allPoints.concat(validPath.slice(1));
+                        const poly = new AMap.Polyline({ path: validPath, strokeColor: colors[i % colors.length], strokeWeight: 5, strokeOpacity: 0.8, lineJoin: 'round', showDir: true });
+                        map.add(poly); allPolylines.push({ poly: poly, segIndex: i, originalColor: colors[i % colors.length] });
+                    }
+                }
+            });
+            if (allPoints.length >= 2) { const fullLine = new AMap.Polyline({ path: allPoints, strokeColor: '#C8A96E', strokeWeight: 1.5, strokeOpacity: 0.2, strokeStyle: 'dashed', lineJoin: 'round' }); map.add(fullLine); }
+            map.setFitView(null, false, [60, 60, 60, 300]);
+        }
+        function renderRoutePanel(origin, orderedPOIs, segments) {
+            document.getElementById('total-pois').textContent = orderedPOIs.length;
+            document.getElementById('total-distance').textContent = segments.reduce((s, x) => s + x.distance, 0).toFixed(1);
+            document.getElementById('total-duration').textContent = segments.reduce((s, x) => s + x.duration, 0);
+            const listEl = document.getElementById('segments-list');
+            listEl.innerHTML = `<div class="segment-card" style="opacity:0.7;"><div class="segment-index" style="background:rgba(74,106,120,0.12);color:#4A6A78;">📍</div><div class="segment-info"><div class="segment-route">${origin.name}</div><div class="segment-stats">起点</div></div></div>`;
+            segments.forEach((seg, i) => {
+                const card = document.createElement('div'); card.className = 'segment-card'; card.setAttribute('data-seg-index', i);
+                card.onclick = () => { highlightSegment(i); map.setZoomAndCenter(14, [seg.toLng, seg.toLat]); };
+                card.innerHTML = `
+                    <div class="segment-index">${seg.index}</div>
+                    <div class="segment-info">
+                        <div class="segment-route">${seg.to}</div>
+                        <span class="segment-mode ${seg.modeClass}">${seg.modeLabel}</span>
+                        <div class="segment-stats">${seg.instruction}</div>
+                    </div>
+                    <div class="segment-nav-btn" onclick="event.stopPropagation(); openSegmentNav(${seg.toLng}, ${seg.toLat}, '${seg.to.replace(/'/g, "\\'")}');">🧭</div>`;
+                listEl.appendChild(card);
+            });
+        }
+        function highlightSegment(index) {
+            allPolylines.forEach(item => { if (item.segIndex === index) { item.poly.setOptions({ strokeWeight: 7, strokeOpacity: 1, strokeColor: '#8B3A3A' }); } else { item.poly.setOptions({ strokeWeight: 3, strokeOpacity: 0.25, strokeColor: item.originalColor }); } });
+            document.querySelectorAll('.segment-card').forEach((card, i) => { if (i > 0) { const segIdx = parseInt(card.getAttribute('data-seg-index')); card.style.borderColor = segIdx === index ? 'rgba(139,58,58,0.5)' : 'rgba(200,169,110,0.15)'; card.style.background = segIdx === index ? 'rgba(139,58,58,0.04)' : ''; } });
+        }
+        function openSegmentNav(lng, lat, name) {
+            const from = userLocation ? `${userLocation.lng},${userLocation.lat},我的位置` : '';
+            const fromParam = from ? `from=${from}&` : '';
+            window.open(`https://uri.amap.com/navigation?${fromParam}to=${lng},${lat},${encodeURIComponent(name)}&mode=car&callnative=1`, '_blank');
+        }
+        async function main() {
+            let targetPOIs = getTargetPOIs();
+            if (targetPOIs.length === 0) { document.getElementById('loading-text').textContent = '未找到景点数据'; return; }
+            document.getElementById('loading-sub').textContent = '正在获取景点坐标...';
+            targetPOIs = await geocodePOIs(targetPOIs);
+            document.getElementById('loading-sub').textContent = '正在获取您的位置...';
+            userLocation = await getUserLocation();
+            document.getElementById('loading-sub').textContent = '正在计算最优游览顺序...';
+            const orderedPOIs = optimizeRouteOrder(userLocation, targetPOIs);
+            const segments = await planAllSegments(userLocation, orderedPOIs);
+            document.getElementById('loading-sub').textContent = '正在加载地图...';
+            await new Promise(r => setTimeout(r, 300));
+            initMap(userLocation, orderedPOIs, segments);
+            renderRoutePanel(userLocation, orderedPOIs, segments);
+            const { mode, theme } = getURLParams();
+            document.getElementById('route-title').textContent = mode === 'story' ? (theme || '') + ' · 游览路线' : '自由探索 · 游览路线';
+            setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 500);
+        }
+        window.onload = () => { const check = setInterval(() => { if (typeof AMap !== 'undefined') { clearInterval(check); main().catch(err => { console.error(err); document.getElementById('loading-text').textContent = '加载失败'; document.getElementById('loading-sub').textContent = err.message; }); } }, 200); };
+    </script>
+</body>
+</html>
