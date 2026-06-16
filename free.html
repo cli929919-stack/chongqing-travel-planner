@@ -22,10 +22,10 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-         body {
+        body {
             overflow: hidden; height: 100vh;
             font-family: 'Noto Serif SC', 'STSong', 'Songti SC', serif;
-            background-image: url('/static/images/背景图2.jpg');
+            background-image: url('static/images/背景图2.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -40,7 +40,7 @@
             background-repeat: repeat;
         }
 
-               #main-content {
+        #main-content {
             position: relative; z-index: 2; max-width: 1200px; margin: 0 auto;
             padding: 3vh 40px 3vh; height: 100vh; overflow-y: auto;
             display: flex; flex-direction: column;
@@ -100,9 +100,7 @@
         #start-navigate-btn.ready { opacity: 1; pointer-events: auto; }
         #start-navigate-btn.ready:hover { background: #6B2020; box-shadow: 0 4px 12px rgba(139,58,58,0.3); }
 
-        #poi-scroll {
-            flex: 1; overflow: visible; padding: 0 4px;
-        }
+        #poi-scroll { flex: 1; overflow: visible; padding: 0 4px; }
 
         #poi-grid {
             display: grid; gap: 10px;
@@ -168,18 +166,12 @@
             box-shadow: 0 6px 24px rgba(0,0,0,0.3); z-index: 200;
             background: #F5EDE0;
         }
-        .poi-card:nth-child(even) .poi-tooltip {
-            left: auto; right: calc(100% + 12px);
-        }
-        .poi-card.bottom-row .poi-tooltip {
-            top: auto; bottom: 0;
-        }
+        .poi-card:nth-child(even) .poi-tooltip { left: auto; right: calc(100% + 12px); }
+        .poi-card.bottom-row .poi-tooltip { top: auto; bottom: 0; }
         .poi-card .poi-tooltip img {
             width: 100%; height: 267px; object-fit: cover; display: block;
         }
-        .poi-card .poi-tooltip .tooltip-info {
-            padding: 10px 14px;
-        }
+        .poi-card .poi-tooltip .tooltip-info { padding: 10px 14px; }
         .poi-card .poi-tooltip .tooltip-name {
             font-family: 'Noto Serif SC', 'STSong', serif;
             font-weight: 700; font-size: 14px; color: #3D1810; margin-bottom: 2px;
@@ -409,7 +401,7 @@
                 card.innerHTML = `
                     <div class="poi-tooltip">
                         <div class="tooltip-close" style="position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.4);color:#FFF;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:10;">✕</div>
-                        <img src="/static/images/${encodeURIComponent(imgFile)}" onerror="this.style.display='none';" alt="">
+                        <img src="static/images/${encodeURIComponent(imgFile)}" onerror="this.style.display='none';" alt="">
                         <div class="tooltip-info">
                             <div class="tooltip-name">${poi.name}</div>
                             <div class="tooltip-district">${poi.district}</div>
@@ -474,7 +466,7 @@
         function startNavigate() {
             if (selectedPOIs.size < 2) { showToast('请至少选择2个景点'); return; }
             const ids = Array.from(selectedPOIs).sort((a,b)=>a-b).join(',');
-           window.location.href = 'navigate.html?mode=free&pois=' + ids + '&from=free';
+            window.location.href = 'navigate.html?mode=free&pois=' + ids + '&from=free';
         }
 
         function showToast(msg) {
