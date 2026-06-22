@@ -92,7 +92,7 @@
         #scenery-inner {
             position: absolute; top: 0; left: 0; height: 100%;
             display: flex; gap: 8px;
-            animation: scrollScenery 50s linear infinite;
+            animation: scrollScenery 80s linear infinite;
         }
         @keyframes scrollScenery {
             0% { transform: translateX(0); }
@@ -102,6 +102,9 @@
             height: 100%; width: auto; flex-shrink: 0;
             object-fit: cover; border-radius: 2px;
             filter: brightness(0.88) saturate(0.8) contrast(1.05) sepia(0.1);
+        }
+        @media (max-width: 768px) {
+            .scene-img { min-width: 45vw; }
         }
 
         #glass-reflection {
@@ -228,13 +231,13 @@
             margin-top: 14px; letter-spacing: 0.08em;
         }
 
-             @media (max-width: 768px) {
+        @media (max-width: 768px) {
             #train-section { height: 30vh; min-height: 200px; }
-            #bottom-section { height: 55vh; }
-            #bottom-actions { gap: 50px; bottom: 10%; }
-            #title-display { margin-top: 2vh; margin-bottom: 3vh; }
-            #sub-title { margin-top: 6px; }
-            .entry-label { font-size: 12px; margin-top: 10px; white-space: nowrap; }
+            #bottom-section { height: 50vh; }
+            #bottom-actions { gap: 50px; bottom: 12%; }
+            #title-display { margin-top: 2vh; }
+            #sub-title { margin-top: 4px; margin-bottom: 4vh; }
+            .entry-label { font-size: 11px; margin-top: 8px; white-space: nowrap; }
         }
     </style>
 </head>
